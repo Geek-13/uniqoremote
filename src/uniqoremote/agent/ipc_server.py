@@ -16,7 +16,9 @@ class IpcServer:
 
     async def start(self) -> int:
         self._server = await asyncio.start_server(self._handler, self._host, self._port)
-        return self._server.sockets[0].getsockname()[1]
+        assert self._server.sockets is not None
+        sockname: tuple[str, int] = self._server.sockets[0].getsockname()[:2]
+        return sockname[1]
 
     async def accept(self) -> IpcConnection:
         return await self._pending.get()

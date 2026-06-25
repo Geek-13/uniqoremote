@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from uniqoremote.session.recording import RecordState, RecordingManager, RecordingSession
+from uniqoremote.session.recording import RecordingManager, RecordingSession, RecordState
 
 
 class TestRecording:
