@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+.venv/
+.eggs/
+*.egg-info/
+dist/
+build/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.env
+
+# Large binary files
+*.exe
+*.msi
+
+# RustDesk reference source (not part of our project)
+source/
