@@ -62,7 +62,9 @@ class FfmpegEncoder:
 
     async def request_keyframe(self) -> None:
         if self._proc is not None:
-            self._proc.send_signal(subprocess.signal.SIGINT)
+            import signal as _signal
+
+            self._proc.send_signal(_signal.SIGINT)  # type: ignore[attr-defined]
 
     async def stop(self) -> None:
         if self._proc is not None:
@@ -90,7 +92,7 @@ class FfmpegDecoder:
         if not self._available:
             return
         exe = _find_ffmpeg()
-        cmd = [
+        cmd: list[str] = [
             exe,
             "-f",
             codec,
