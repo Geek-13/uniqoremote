@@ -37,16 +37,26 @@ class FfmpegEncoder:
         assert exe is not None
         encoder = _pick_encoder(self._config.hardware)
         cmd: list[str] = [
-            "-f", "rawvideo",
-            "-pix_fmt", "bgra",
-            "-s", f"{width}x{height}",
-            "-r", str(fps),
-            "-i", "pipe:0",
-            "-c:v", encoder,
-            "-b:v", f"{self._config.bitrate}k",
-            "-g", str(fps * 2),
-            "-preset", self._config.preset,
-            "-f", codec,
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "bgra",
+            "-s",
+            f"{width}x{height}",
+            "-r",
+            str(fps),
+            "-i",
+            "pipe:0",
+            "-c:v",
+            encoder,
+            "-b:v",
+            f"{self._config.bitrate}k",
+            "-g",
+            str(fps * 2),
+            "-preset",
+            self._config.preset,
+            "-f",
+            codec,
             "pipe:1",
         ]
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
@@ -130,17 +140,18 @@ class FfmpegDecoder:
 def _find_ffmpeg() -> str | None:
     for path in (
         "ffmpeg",
-        os.path.join(
-            os.environ.get("PROGRAMFILES", ""), "ffmpeg", "bin", "ffmpeg.exe"
-        ),
+        os.path.join(os.environ.get("PROGRAMFILES", ""), "ffmpeg", "bin", "ffmpeg.exe"),
     ):
         try:
-            if subprocess.call(
-                [path, "-version"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                timeout=3,
-            ) == 0:
+            if (
+                subprocess.call(
+                    [path, "-version"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=3,
+                )
+                == 0
+            ):
                 return path
         except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
             continue

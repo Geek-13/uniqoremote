@@ -81,7 +81,9 @@ class P2PTransport(Transport):
             try:
                 data = await asyncio.wait_for(self._udp.recv(), timeout=timeout)
                 if data:
-                    return PunchResult(success=True, local_addr=self.local_addr or ("", 0), peer_addr=peer_addr)
+                    return PunchResult(
+                        success=True, local_addr=self.local_addr or ("", 0), peer_addr=peer_addr
+                    )
             except TimeoutError:
                 continue
         return PunchResult(success=False, local_addr=self.local_addr or ("", 0))
