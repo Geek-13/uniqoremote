@@ -1,0 +1,13 @@
+version: "3.9"
+services:
+  uniqoremote-server:
+    build: .
+    ports:
+      - "21116:21116/udp"
+      - "21117:21117/udp"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
