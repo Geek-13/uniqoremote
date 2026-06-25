@@ -29,9 +29,13 @@ async def test_tcp_echo_loopback() -> None:
 
 
 async def _echo_handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-    data = await reader.read(1024)
+    header = await reader.readexactly(4)
+    length = int.from_bytes(header, "big")
+    data = await reader.readexactly(length)
     if data == b"ping":
-        writer.write(b"pong")
+        pong_data = b"pong"
+        writer.write(len(pong_data).to_bytes(4, "big"))
+        writer.write(pong_data)
         await writer.drain()
     writer.close()
     await writer.wait_closed()
@@ -42,7 +46,10 @@ async def test_tcp_large_transfer() -> None:
     large_data = b"A" * 65536
 
     async def handler(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-        data = await reader.readexactly(len(large_data))
+        header = await reader.readexactly(4)
+        length = int.from_bytes(header, "big")
+        data = await reader.readexactly(length)
+        writer.write(len(data).to_bytes(4, "big"))
         writer.write(data)
         await writer.drain()
         writer.close()
@@ -57,7 +64,7 @@ async def test_tcp_large_transfer() -> None:
     await client.connect(addr)
 
     await client.send(large_data)
-    response = await asyncio.wait_for(client.recv_exactly(len(large_data)), timeout=5.0)
+    response = await asyncio.wait_for(client.recv(), timeout=5.0)
     assert response == large_data
 
     await client.close()

@@ -17,14 +17,16 @@ class UdpTransport(Transport):
         if self._transport is not None:
             sock = self._transport.get_extra_info("socket")
             if sock is not None:
-                return sock.getsockname()[:2]
+                sockname = sock.getsockname()
+                return (sockname[0], sockname[1])
         return None
 
     async def bind(self, addr: tuple[str, int]) -> Self:
         loop = asyncio.get_running_loop()
-        self._protocol = _UdpProtocol()
+        protocol = _UdpProtocol()
+        self._protocol = protocol
         self._transport, _ = await loop.create_datagram_endpoint(
-            lambda: self._protocol,
+            lambda: protocol,
             local_addr=addr,
         )
         return self
