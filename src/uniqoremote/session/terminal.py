@@ -47,9 +47,11 @@ class RemoteTerminal:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout_b, stderr_b = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+            assert isinstance(stdout_b, bytes)
+            assert isinstance(stderr_b, bytes)
             return TerminalResult(
-                stdout=stdout_b.decode("utf-8", errors="replace") if stdout_b else "",  # type: ignore[arg-type]
-                stderr=stderr_b.decode("utf-8", errors="replace") if stderr_b else "",  # type: ignore[arg-type]
+                stdout=stdout_b.decode("utf-8", errors="replace") if stdout_b else "",
+                stderr=stderr_b.decode("utf-8", errors="replace") if stderr_b else "",
                 exit_code=proc.returncode or 0,
             )
         except TimeoutError:
