@@ -72,6 +72,7 @@ class P2PTransport(Transport):
         attempts: int = 5,
         timeout: float = 0.5,
     ) -> PunchResult:
+        await self._udp.connect(peer_addr)
         for i in range(attempts):
             try:
                 await self._udp.send(b"\x00" * 8)
