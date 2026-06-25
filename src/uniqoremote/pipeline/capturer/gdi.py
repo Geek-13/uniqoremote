@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.wintypes
+from typing import Any
 
 import numpy as np
 
@@ -47,9 +48,9 @@ class GdiCapturer(Capturer):
         buf = (ctypes.c_ubyte * buf_size)()
         gdi32.GetDIBits(hdc_dst, hbitmap, 0, height, buf, ctypes.byref(bmp_info), 0)
 
-        data = np.frombuffer(buf, dtype=np.uint8).reshape(height, width, 4)
-        data = data[:, :, :3]
-        data = np.ascontiguousarray(data[:, :, ::-1])
+        raw = np.frombuffer(buf, dtype=np.uint8).reshape(height, width, 4)
+        bgr: np.ndarray[Any, Any] = raw[:, :, :3]
+        data: np.ndarray[Any, Any] = np.ascontiguousarray(bgr[:, :, ::-1])
 
         gdi32.DeleteObject(hbitmap)
         gdi32.DeleteDC(hdc_dst)

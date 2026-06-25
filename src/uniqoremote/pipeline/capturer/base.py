@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
 
 @dataclass
 class RawFrame:
-    data: np.ndarray
+    data: np.ndarray[Any, Any]
     width: int
     height: int
     pts: float = 0.0

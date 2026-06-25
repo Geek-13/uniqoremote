@@ -24,7 +24,10 @@ class RelayServer:
             lambda: _RelayProtocol(self),
             local_addr=(host, port),
         )
-        return self._transport.get_extra_info("socket").getsockname()[1]
+        sock = self._transport.get_extra_info("socket")
+        assert sock is not None
+        sockname: tuple[str, int] = sock.getsockname()
+        return sockname[1]
 
     def create_session(self, session_id: str) -> RelaySession:
         session = RelaySession(session_id=session_id)
