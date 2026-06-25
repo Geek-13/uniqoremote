@@ -60,15 +60,18 @@ class MainWindow(QMainWindow):
         actions = QGroupBox("快捷操作")
         actions_layout = QVBoxLayout(actions)
         self._file_btn = QPushButton("远程文件管理")
-        self._file_btn.clicked.connect(lambda: self._status.showMessage("文件管理器 - 开发中", 3000))
+        self._file_btn.clicked.connect(self._open_file_manager)
         self._terminal_btn = QPushButton("远程终端 (CMD)")
-        self._terminal_btn.clicked.connect(lambda: self._status.showMessage("远程终端 - 开发中", 3000))
+        self._terminal_btn.clicked.connect(self._open_terminal)
         self._privacy_btn = QPushButton("隐私屏")
         self._privacy_btn.setCheckable(True)
         self._privacy_btn.clicked.connect(self._on_toggle_privacy)
+        self._settings_btn = QPushButton("设置")
+        self._settings_btn.clicked.connect(self._open_settings)
         actions_layout.addWidget(self._file_btn)
         actions_layout.addWidget(self._terminal_btn)
         actions_layout.addWidget(self._privacy_btn)
+        actions_layout.addWidget(self._settings_btn)
         root.addWidget(actions)
 
         recent = QGroupBox("最近连接")
@@ -109,3 +112,22 @@ class MainWindow(QMainWindow):
             self._status.showMessage("隐私屏已关闭", 2000)
             self._privacy_btn.setText("隐私屏")
             self._privacy_btn.setStyleSheet("")
+
+    def _open_file_manager(self) -> None:
+        from uniqoremote.ui.windows.file_manager import FileManagerDialog
+
+        dlg = FileManagerDialog(self)
+        dlg.exec()
+
+    def _open_terminal(self) -> None:
+        from uniqoremote.ui.windows.terminal import TerminalDialog
+
+        dlg = TerminalDialog(self)
+        dlg.exec()
+
+    def _open_settings(self) -> None:
+        from uniqoremote.ui.windows.settings import SettingsDialog
+
+        dlg = SettingsDialog(self._config, self)
+        if dlg.exec():
+            self._status.showMessage("设置已保存", 2000)

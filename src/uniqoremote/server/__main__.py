@@ -1,16 +1,16 @@
 """UniqoRemote Server — rendezvous and relay."""
+
 from __future__ import annotations
 
 import asyncio
 import signal
-import sys
 
 from uniqoremote.core.logging import configure_logging
 
 
 async def main() -> None:
     logger = configure_logging(level="INFO")
-    logger.info("server_starting")
+    logger.info("server_starting")  # type: ignore[attr-defined]
 
     server = await asyncio.start_server(
         lambda r, w: asyncio.create_task(_handle(r, w, logger)),
@@ -18,7 +18,7 @@ async def main() -> None:
         21116,
     )
     addr = server.sockets[0].getsockname()
-    logger.info("server_listening", host=addr[0], port=addr[1])
+    logger.info("server_listening", host=addr[0], port=addr[1])  # type: ignore[attr-defined]
 
     stop = asyncio.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())

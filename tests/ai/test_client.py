@@ -1,49 +1,53 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
-from uniqoremote.ai.client import AIClient
+from uniqoremote.ai.client import AIClient, DeepSeekClient
 
 
-class MockAIClient(AIClient):
-    async def ask(self, prompt: str, image: bytes | None = None) -> str:
-        return f"answer: {prompt}"
+class TestDeepSeekClient:
+    def test_not_configured_without_key(self) -> None:
+        client = DeepSeekClient(api_key="")
+        assert client.is_configured is False
 
-    async def ocr(self, image: bytes) -> str:
-        return "extracted text"
+    def test_ask_returns_placeholder_when_disabled(self) -> None:
+        client = DeepSeekClient(api_key="")
+        import asyncio
 
-    async def translate(self, text: str, target_lang: str = "zh") -> str:
-        return f"[{target_lang}] {text}"
+        result = asyncio.run(client.ask("hello"))
+        assert "[AI disabled" in result
 
-    async def summarize(self, context: str) -> str:
-        return f"summary: {context[:50]}"
+    def test_configured_with_env_var(self) -> None:
+        os.environ["UNIQOREMOTE_AI_API_KEY"] = "sk-test"
+        client = DeepSeekClient()
+        assert client.is_configured is True
+        del os.environ["UNIQOREMOTE_AI_API_KEY"]
+
+    def test_ocr_delegates_to_ask(self) -> None:
+        client = DeepSeekClient(api_key="")
+        import asyncio
+
+        result = asyncio.run(client.ocr(b"fake"))
+        assert "[AI disabled" in result
+
+    def test_translate_delegates_to_ask(self) -> None:
+        client = DeepSeekClient(api_key="")
+        import asyncio
+
+        result = asyncio.run(client.translate("hallo", "zh"))
+        assert "[AI disabled" in result
+
+    def test_summarize_delegates_to_ask(self) -> None:
+        client = DeepSeekClient(api_key="")
+        import asyncio
+
+        result = asyncio.run(client.summarize("long text"))
+        assert "[AI disabled" in result
 
 
-class TestAIClient:
-    def test_cannot_instantiate_abc(self) -> None:
+class TestAIClientABC:
+    def test_cannot_instantiate(self) -> None:
         with pytest.raises(TypeError):
             AIClient()  # type: ignore[abstract]
-
-    @pytest.mark.asyncio
-    async def test_mock_ask(self) -> None:
-        client = MockAIClient()
-        result = await client.ask("what is this?")
-        assert result == "answer: what is this?"
-
-    @pytest.mark.asyncio
-    async def test_mock_ocr(self) -> None:
-        client = MockAIClient()
-        result = await client.ocr(b"fake image data")
-        assert result == "extracted text"
-
-    @pytest.mark.asyncio
-    async def test_mock_translate(self) -> None:
-        client = MockAIClient()
-        result = await client.translate("hello", "zh")
-        assert result == "[zh] hello"
-
-    @pytest.mark.asyncio
-    async def test_mock_summarize(self) -> None:
-        client = MockAIClient()
-        result = await client.summarize("long context " * 100)
-        assert result.startswith("summary:")

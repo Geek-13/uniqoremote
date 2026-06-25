@@ -28,8 +28,7 @@ class AnomalyMonitor:
                     event_type="rate_limit",
                     severity="warning",
                     description=(
-                        f"High connection rate from {remote_ip}: "
-                        f"{connections_per_minute}/min"
+                        f"High connection rate from {remote_ip}: {connections_per_minute}/min"
                     ),
                 )
             )
