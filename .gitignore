@@ -18,3 +18,5 @@ htmlcov/
 
 # RustDesk reference source (not part of our project)
 source/
+
+config.toml
