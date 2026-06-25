@@ -31,9 +31,11 @@ class RemoteTerminal:
                 exit_code=result.returncode,
             )
         except subprocess.TimeoutExpired as e:
+            timeout_stdout = e.stdout.decode("utf-8", errors="replace") if e.stdout else ""
+            timeout_stderr = e.stderr.decode("utf-8", errors="replace") if e.stderr else ""
             return TerminalResult(
-                stdout=e.stdout or "",
-                stderr=e.stderr or "",
+                stdout=timeout_stdout,
+                stderr=timeout_stderr,
                 exit_code=-1,
             )
 
