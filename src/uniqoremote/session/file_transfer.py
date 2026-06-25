@@ -1,48 +1,45 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import StrEnum
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from uniqoremote.session.manager import SessionManager
+
+CHUNK_SIZE = 65536
 
 
-class TransferState(StrEnum):
-    PENDING = "pending"
-    TRANSFERRING = "transferring"
-    PAUSED = "paused"
-    COMPLETED = "completed"
-    ERROR = "error"
-
-
-@dataclass
 class FileTransfer:
-    transfer_id: str
-    filename: str
-    size: int
-    state: TransferState = TransferState.PENDING
-    progress: int = 0
-    local_path: Path | None = None
+    def __init__(self, session_mgr: SessionManager) -> None:
+        self._session_mgr = session_mgr
 
+    async def send(self, filepath: str) -> None:
+        path = Path(filepath)
+        if not path.is_file():
+            return
+        name = path.name
+        size = path.stat().st_size
+        with path.open("rb") as f:
+            offset = 0
+            while offset < size:
+                chunk = f.read(CHUNK_SIZE)
+                await self._session_mgr.send_input(
+                    {
+                        "type": "file_chunk",
+                        "filename": name,
+                        "offset": offset,
+                        "size": len(chunk),
+                        "total_size": size,
+                        "data": chunk,
+                    }
+                )
+                offset += len(chunk)
 
-class FileTransferManager:
-    def __init__(self, chunk_size: int = 65536) -> None:
-        self._transfers: dict[str, FileTransfer] = {}
-        self._chunk_size = chunk_size
-
-    def create_transfer(self, transfer_id: str, filename: str, size: int) -> FileTransfer:
-        transfer = FileTransfer(transfer_id=transfer_id, filename=filename, size=size)
-        self._transfers[transfer_id] = transfer
-        return transfer
-
-    def get_transfer(self, transfer_id: str) -> FileTransfer | None:
-        return self._transfers.get(transfer_id)
-
-    def update_progress(self, transfer_id: str, progress: int) -> None:
-        transfer = self._transfers.get(transfer_id)
-        if transfer is None:
-            raise KeyError(f"Transfer {transfer_id} not found")
-        transfer.progress = progress
-        if progress >= transfer.size:
-            transfer.state = TransferState.COMPLETED
-
-    def remove_transfer(self, transfer_id: str) -> None:
-        self._transfers.pop(transfer_id, None)
+    @staticmethod
+    def on_chunk(payload: dict, save_dir: str) -> None:
+        name = payload["filename"]
+        data = payload.get("data", b"")
+        path = Path(save_dir) / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("ab") as f:
+            f.write(data)

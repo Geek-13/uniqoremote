@@ -1,39 +1,33 @@
 from __future__ import annotations
 
 import logging
-import sys
-from typing import IO
+import os
+from pathlib import Path
 
 import structlog
 from structlog.typing import BindableLogger
 
 
-def configure_logging(
-    level: str = "INFO",
-    output: IO[str] | None = None,
-) -> BindableLogger:
-    if output is None:
-        output = sys.stderr
+def configure_logging(level: str = "INFO") -> BindableLogger:
+    log_dir = Path(os.environ.get("APPDATA", "")) / "UniqoRemote" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "uniqoremote.log"
 
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
-            structlog.stdlib.add_logger_name,
             structlog.stdlib.add_log_level,
-            structlog.stdlib.PositionalArgumentsFormatter(),
             structlog.processors.TimeStamper(fmt="iso"),
-            structlog.processors.StackInfoRenderer(),
-            structlog.processors.format_exc_info,
-            structlog.processors.UnicodeDecoder(),
-            structlog.processors.JSONRenderer(),
+            structlog.dev.ConsoleRenderer(),
         ],
         context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
-        wrapper_class=structlog.stdlib.BoundLogger,
+        logger_factory=structlog.PrintLoggerFactory(),
         cache_logger_on_first_use=True,
     )
 
-    log_level = getattr(logging, level.upper(), logging.INFO)
-    logging.basicConfig(format="%(message)s", stream=output, level=log_level)
+    file_handler = logging.FileHandler(str(log_file), encoding="utf-8")
+    file_handler.setLevel(getattr(logging, level.upper()))
+    logging.getLogger().addHandler(file_handler)
+    logging.getLogger().setLevel(getattr(logging, level.upper()))
 
     return structlog.get_logger()  # type: ignore[no-any-return]

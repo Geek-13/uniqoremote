@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Self
 
 from uniqoremote.transport.base import Transport
+from uniqoremote.transport.tcp import TcpTransport
 from uniqoremote.transport.udp import UdpTransport
 
 
@@ -44,22 +45,37 @@ class StunClient:
 class P2PTransport(Transport):
     def __init__(self) -> None:
         self._udp = UdpTransport()
+        self._relay: TcpTransport | None = None
+        self._use_relay = False
+
+    def set_relay(self, relay: TcpTransport) -> None:
+        self._relay = relay
 
     async def bind(self, addr: tuple[str, int]) -> Self:
         await self._udp.bind(addr)
         return self
 
     async def connect(self, addr: tuple[str, int]) -> None:
-        await self._udp.connect(addr)
+        if self._use_relay and self._relay:
+            await self._relay.connect(addr)
+        else:
+            await self._udp.connect(addr)
 
     async def send(self, data: bytes) -> None:
-        await self._udp.send(data)
+        if self._use_relay and self._relay:
+            await self._relay.send(data)
+        else:
+            await self._udp.send(data)
 
     async def recv(self) -> bytes:
+        if self._use_relay and self._relay:
+            return await self._relay.recv()
         return await self._udp.recv()
 
     async def close(self) -> None:
         await self._udp.close()
+        if self._relay:
+            await self._relay.close()
 
     @property
     def local_addr(self) -> tuple[str, int] | None:
@@ -83,4 +99,8 @@ class P2PTransport(Transport):
                     )
             except TimeoutError:
                 continue
-        return PunchResult(success=False, local_addr=self.local_addr or ("", 0))
+        result = PunchResult(success=False, local_addr=self.local_addr or ("", 0))
+        if self._relay is not None:
+            self._use_relay = True
+            result.nat_type = "relay_fallback"
+        return result

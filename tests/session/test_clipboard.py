@@ -1,21 +1,30 @@
 from __future__ import annotations
 
-from uniqoremote.session.clipboard import ClipboardData
+import pytest
+
+from uniqoremote.session.clipboard import ClipboardSync
 
 
-class TestClipboardData:
-    def test_default_values(self) -> None:
-        data = ClipboardData()
-        assert data.text == ""
-        assert data.format == "text/plain"
+@pytest.mark.asyncio
+async def test_clipboard_sync_start_stop() -> None:
+    captured: list[str] = []
 
-    def test_custom_text(self) -> None:
-        data = ClipboardData(text="hello", format="text/html")
-        assert data.text == "hello"
-        assert data.format == "text/html"
+    def handler(text: str) -> None:
+        captured.append(text)
 
-    def test_sync_logic(self) -> None:
-        local = ClipboardData(text="local_text")
-        remote = ClipboardData(text="remote_text")
-        assert local.text != remote.text
-        assert remote.text == "remote_text"
+    sync = ClipboardSync(handler)
+    await sync.start()
+    assert sync._running
+    await sync.stop()
+    assert not sync._running
+
+
+def test_on_remote_text() -> None:
+    sent: list[str] = []
+
+    def handler(text: str) -> None:
+        sent.append(text)
+
+    sync = ClipboardSync(handler)
+    sync.on_remote_text("hello")
+    assert sync._last_text == "hello"

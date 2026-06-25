@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -104,6 +104,9 @@ class MainWindow(QMainWindow):
         agent_client: IpcClient | None = None,
         ai_client: DeepSeekClient | None = None,
         router: MessageRouter | None = None,
+        stun_client: Any = None,
+        p2p_transport: Any = None,
+        relay_transport: Any = None,
     ) -> None:
         super().__init__()
         self._config = config
@@ -112,6 +115,9 @@ class MainWindow(QMainWindow):
         self._agent_client = agent_client
         self._ai_client = ai_client
         self._router = router
+        self._stun_client = stun_client
+        self._p2p_transport = p2p_transport
+        self._relay_transport = relay_transport
         self._active_session_id: str | None = None
         self.setStyleSheet(STYLE)
 
@@ -132,7 +138,9 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._build_placeholder("远程终端"))
         self._stack.addWidget(self._build_session_tools())
         self._stack.addWidget(self._build_ai_tools())
-        self._stack.addWidget(self._build_placeholder("设置"))
+        from uniqoremote.ui.windows.settings import SettingsPage
+
+        self._stack.addWidget(SettingsPage(config))
         root.addWidget(self._stack, 1)
 
         self._status = QStatusBar()
@@ -292,15 +300,50 @@ class MainWindow(QMainWindow):
         if not rid:
             self._status.showMessage("请输入远程设备 ID", 3000)
             return
+
+        server_str = self._config.network.rendezvous_server
+        if not server_str:
+            self._status.showMessage("请先在设置中配置服务器地址", 5000)
+            return
+
+        host, port_str = server_str.rsplit(":", 1)
+        server_addr = (host, int(port_str))
+
+        import asyncio
+
         self._active_session_id = rid
-        self._disconnect_btn.setEnabled(True)
-        self._status.showMessage(f"已连接到 {rid} - 远程功能已启用", 5000)
-        for i in range(1, self._stack.count()):
-            w = self._stack.widget(i)
-            if w:
-                self._enable_buttons(w, True)
+
+        async def _do_connect() -> None:
+            try:
+                await self._session_mgr.connect(
+                    remote_device_id=rid,
+                    server_addr=server_addr,
+                    stun=self._stun_client,
+                    p2p=self._p2p_transport,
+                    relay=self._relay_transport,
+                    config_device_id=self._config.identity.device_id,
+                )
+                self._disconnect_btn.setEnabled(True)
+                self._status.showMessage(f"已连接到 {rid}", 5000)
+                for i in range(1, self._stack.count()):
+                    w = self._stack.widget(i)
+                    if w:
+                        self._enable_buttons(w, True)
+            except Exception as e:
+                self._status.showMessage(f"连接失败: {e}", 5000)
+
+        asyncio.ensure_future(_do_connect())
 
     def _on_disconnect(self) -> None:
+        import asyncio
+
+        async def _do_disconnect() -> None:
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                await self._session_mgr.disconnect()
+
+        asyncio.ensure_future(_do_disconnect())
         self._active_session_id = None
         self._disconnect_btn.setEnabled(False)
         self._status.showMessage("已断开连接", 3000)

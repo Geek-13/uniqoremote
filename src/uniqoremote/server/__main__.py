@@ -1,38 +1,32 @@
-"""UniqoRemote Server — rendezvous and relay."""
-
 from __future__ import annotations
 
 import asyncio
 import signal
+from typing import Any
 
 from uniqoremote.core.logging import configure_logging
-from uniqoremote.server.relay.relay import RelayServer
-from uniqoremote.server.rendezvous.manager import RendezvousManager
+from uniqoremote.server.protocol import ProtocolServer
 
 
 async def main() -> None:
-    logger = configure_logging(level="INFO")
-    logger.info("server_starting")  # type: ignore[attr-defined]
+    logger: Any = configure_logging(level="INFO")
+    logger.info("server_starting")
 
-    rendezvous = RendezvousManager()
-    relay = RelayServer()
+    server = ProtocolServer()
+    rendezvous_port = await server.start("0.0.0.0", 21116)
+    logger.info("rendezvous_listening", port=rendezvous_port)
+    relay_port = await server.start_relay("0.0.0.0", 21117)
+    logger.info("relay_listening", port=relay_port)
 
-    relay_port = await relay.start("0.0.0.0", 21117)
-    logger.info("relay_listening", port=relay_port)  # type: ignore[attr-defined]
-
-    from uniqoremote.server.admin.web import AdminWebPanel
-
-    AdminWebPanel(rendezvous)
+    logger.info("server_ready")
 
     stop = asyncio.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())
     signal.signal(signal.SIGTERM, lambda *_: stop.set())
 
-    logger.info("server_ready")  # type: ignore[attr-defined]
     await stop.wait()
-
-    await relay.stop()
-    logger.info("server_stopped")  # type: ignore[attr-defined]
+    await server.stop()
+    logger.info("server_stopped")
 
 
 if __name__ == "__main__":

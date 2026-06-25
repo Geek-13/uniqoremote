@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 from uniqoremote.pipeline.capturer.base import Capturer
 from uniqoremote.pipeline.encoder.base import Encoder
@@ -33,10 +34,8 @@ class PipelineRunner:
         self._running = False
         if self._task is not None:
             self._task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await self._task
-            except asyncio.CancelledError:
-                pass
         await self._encoder.stop()
         await self._capturer.stop()
 

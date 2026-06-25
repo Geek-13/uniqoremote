@@ -1,49 +1,106 @@
 from __future__ import annotations
 
-import numpy as np
+import asyncio
+from typing import TYPE_CHECKING
+
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtGui import QImage, QKeyEvent, QMouseEvent, QPixmap
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+
+if TYPE_CHECKING:
+    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder
+    from uniqoremote.session.manager import SessionManager
 
 
 class RemoteView(QWidget):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(0, 0, 0, 0)
-
+    def __init__(
+        self,
+        session_mgr: SessionManager | None = None,
+        decoder: FfmpegDecoder | None = None,
+    ) -> None:
+        super().__init__()
+        self._session_mgr = session_mgr
+        self._decoder = decoder
         self._display = QLabel()
-        self._display.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self._display.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._display.setStyleSheet("background-color: #1a1a1a;")
-        self._display.setText("等待连接...")
-        self._layout.addWidget(self._display)
+        self._display.setStyleSheet("background-color: black;")
+        self._display.setMinimumSize(640, 480)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._display)
 
-        self._current_frame: np.ndarray | None = None
+        self.setMouseTracking(True)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+
+        if self._session_mgr:
+            self._session_mgr.on_frame(self._on_frame)
+
         self._timer = QTimer()
-        self._timer.timeout.connect(self._refresh)
-        self._timer.start(33)
+        self._timer.timeout.connect(self._process_frames)
+        self._timer.start(16)
+        self._frame_queue: list[bytes] = []
 
-    def update_frame(self, data: np.ndarray, width: int, height: int) -> None:
-        if data.shape[:2] != (height, width):
-            data = data.reshape(height, width, 3)
-        self._current_frame = data
+    def _on_frame(self, data: bytes) -> None:
+        self._frame_queue.append(data)
 
-    def _refresh(self) -> None:
-        if self._current_frame is None:
+    def _process_frames(self) -> None:
+        if not self._frame_queue:
             return
-        h, w, _ = self._current_frame.shape
-        qimage = QImage(self._current_frame.tobytes(), w, h, w * 3, QImage.Format.Format_BGR888)
-        scaled = self._display.size()
-        pixmap = QPixmap.fromImage(qimage).scaled(
-            scaled, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
-        )
-        self._display.setPixmap(pixmap)
+        data = self._frame_queue.pop(0)
+        if self._decoder:
+            raw = self._decoder.decode(data)
+            if raw and self._decoder._width > 0:
+                img = QImage(
+                    raw,
+                    self._decoder._width,
+                    self._decoder._height,
+                    self._decoder._width * 4,
+                    QImage.Format.Format_RGBA8888,
+                )
+                self._display.setPixmap(QPixmap.fromImage(img))
 
-    def set_placeholder(self, text: str) -> None:
-        self._current_frame = None
-        self._display.setText(text)
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._session_mgr:
+            asyncio.ensure_future(
+                self._session_mgr.send_input(
+                    {"type": "mouse_move", "x": event.position().x(), "y": event.position().y()}
+                )
+            )
 
-    def get_display_size(self) -> tuple[int, int]:
-        s = self._display.size()
-        return (s.width(), s.height())
+    def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._session_mgr:
+            btn_map = {
+                Qt.MouseButton.LeftButton: "left",
+                Qt.MouseButton.RightButton: "right",
+                Qt.MouseButton.MiddleButton: "middle",
+            }
+            btn = btn_map.get(event.button(), "left")
+            asyncio.ensure_future(
+                self._session_mgr.send_input({"type": "mouse_press", "button": btn})
+            )
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # noqa: N802
+        if self._session_mgr:
+            btn_map = {
+                Qt.MouseButton.LeftButton: "left",
+                Qt.MouseButton.RightButton: "right",
+                Qt.MouseButton.MiddleButton: "middle",
+            }
+            btn = btn_map.get(event.button(), "left")
+            asyncio.ensure_future(
+                self._session_mgr.send_input({"type": "mouse_release", "button": btn})
+            )
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if self._session_mgr:
+            asyncio.ensure_future(
+                self._session_mgr.send_input(
+                    {"type": "key_press", "key": event.key(), "modifiers": int(event.modifiers())}
+                )
+            )
+
+    def keyReleaseEvent(self, event: QKeyEvent) -> None:  # noqa: N802
+        if self._session_mgr:
+            asyncio.ensure_future(
+                self._session_mgr.send_input({"type": "key_release", "key": event.key()})
+            )

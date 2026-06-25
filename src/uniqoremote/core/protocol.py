@@ -87,3 +87,12 @@ def make_hello_payload(
         "capabilities": capabilities,
         "nonce": nonce,
     }
+
+
+def make_relay_frame(session_id: str, data: bytes) -> bytes:
+    return session_id.encode("ascii")[:12].ljust(12, b"\x00") + data
+
+
+def parse_relay_frame(data: bytes) -> tuple[str, bytes]:
+    sid = data[:12].decode("ascii").rstrip("\x00")
+    return sid, data[12:]

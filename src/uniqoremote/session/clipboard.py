@@ -1,65 +1,80 @@
 from __future__ import annotations
 
+import asyncio
 import ctypes
-import ctypes.wintypes
-from dataclasses import dataclass
+from collections.abc import Callable
 
 
-@dataclass
-class ClipboardData:
-    text: str = ""
-    format: str = "text/plain"
+class ClipboardSync:
+    def __init__(self, send_handler: Callable[[str], None]) -> None:
+        self._send = send_handler
+        self._last_text: str = ""
+        self._running = False
+        self._task: asyncio.Task[None] | None = None
 
+    async def start(self) -> None:
+        self._running = True
+        self._task = asyncio.create_task(self._poll_loop())
 
-class ClipboardManager:
-    CF_UNICODETEXT = 13
+    async def stop(self) -> None:
+        self._running = False
+        if self._task:
+            self._task.cancel()
 
-    def __init__(self) -> None:
-        self._user32 = ctypes.windll.user32
-        self._kernel32 = ctypes.windll.kernel32
+    def on_remote_text(self, text: str) -> None:
+        self._last_text = text
+        self._set_clipboard(text)
 
-    def get_text(self) -> ClipboardData:
-        try:
-            if not self._user32.OpenClipboard(0):
-                return ClipboardData()
+    async def _poll_loop(self) -> None:
+        while self._running:
             try:
-                hdata = self._user32.GetClipboardData(self.CF_UNICODETEXT)
-                if hdata is None:
-                    return ClipboardData()
-                ptr = self._kernel32.GlobalLock(hdata)
-                if ptr is None:
-                    return ClipboardData()
-                try:
-                    text = ctypes.c_wchar_p(ptr).value
-                    return ClipboardData(text=text or "")
-                finally:
-                    self._kernel32.GlobalUnlock(hdata)
-            finally:
-                self._user32.CloseClipboard()
-        except (OSError, ValueError, ctypes.ArgumentError):
-            return ClipboardData()
+                current = self._get_clipboard()
+                if current and current != self._last_text:
+                    self._last_text = current
+                    self._send(current)
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
 
-    def set_text(self, text: str) -> bool:
+    @staticmethod
+    def _get_clipboard() -> str:
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        CF_TEXT = 1  # noqa: N806
+        if not user32.OpenClipboard(0):
+            return ""
         try:
-            if not self._user32.OpenClipboard(0):
-                return False
+            h_data = user32.GetClipboardData(CF_TEXT)
+            if not h_data:
+                return ""
+            lp = kernel32.GlobalLock(h_data)
+            if not lp:
+                return ""
             try:
-                self._user32.EmptyClipboard()
-                size = (len(text) + 1) * 2
-                hmem = self._kernel32.GlobalAlloc(0x0042, size)
-                ptr = self._kernel32.GlobalLock(hmem)
-                encoded = text.encode("utf-16-le")
-                ctypes.memmove(ptr, encoded, min(len(encoded), size))
-                self._kernel32.GlobalUnlock(hmem)
-                self._user32.SetClipboardData(self.CF_UNICODETEXT, hmem)
-                return True
+                return ctypes.c_char_p(lp).value.decode("gbk", errors="replace")
             finally:
-                self._user32.CloseClipboard()
-        except (OSError, ValueError, ctypes.ArgumentError):
-            return False
+                kernel32.GlobalUnlock(h_data)
+        finally:
+            user32.CloseClipboard()
 
-    def sync(self, remote_data: ClipboardData) -> ClipboardData:
-        local = self.get_text()
-        if remote_data.text and remote_data.text != local.text:
-            self.set_text(remote_data.text)
-        return local
+    @staticmethod
+    def _set_clipboard(text: str) -> None:
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        CF_TEXT = 1  # noqa: N806
+        data = text.encode("gbk") + b"\x00"
+        if not user32.OpenClipboard(0):
+            return
+        try:
+            user32.EmptyClipboard()
+            h_mem = kernel32.GlobalAlloc(0x0002, len(data))
+            if not h_mem:
+                return
+            lp = kernel32.GlobalLock(h_mem)
+            if not lp:
+                return
+            ctypes.memmove(lp, data, len(data))
+            kernel32.GlobalUnlock(h_mem)
+            user32.SetClipboardData(CF_TEXT, h_mem)
+        finally:
+            user32.CloseClipboard()
