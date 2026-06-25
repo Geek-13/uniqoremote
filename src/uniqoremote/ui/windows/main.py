@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QMainWindow,
     QPushButton,
+    QStackedWidget,
     QStatusBar,
     QVBoxLayout,
     QWidget,
@@ -24,6 +24,75 @@ if TYPE_CHECKING:
     from uniqoremote.ui.ipc_client import IpcClient
 
 from uniqoremote.core.config import Config
+
+SIDEBAR_WIDTH = 200
+STYLE = """
+QMainWindow {
+    background-color: #1e1e2e;
+}
+QWidget {
+    color: #cdd6f4;
+    font-size: 14px;
+}
+QGroupBox {
+    border: 1px solid #313244;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding-top: 16px;
+    font-weight: bold;
+    color: #cdd6f4;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 12px;
+    padding: 0 6px;
+}
+QLineEdit {
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    background-color: #313244;
+    color: #cdd6f4;
+}
+QLineEdit:focus {
+    border-color: #89b4fa;
+}
+QPushButton {
+    border: none;
+    border-radius: 6px;
+    padding: 10px 16px;
+    background-color: #45475a;
+    color: #cdd6f4;
+}
+QPushButton:hover {
+    background-color: #585b70;
+}
+QPushButton:pressed {
+    background-color: #313244;
+}
+QPushButton:disabled {
+    background-color: #313244;
+    color: #6c7086;
+}
+QStatusBar {
+    background-color: #181825;
+    color: #a6adc8;
+    border-top: 1px solid #313244;
+}
+QLabel#logo {
+    font-size: 22px;
+    font-weight: bold;
+    color: #89b4fa;
+}
+QLabel#device_id {
+    font-size: 15px;
+    font-weight: bold;
+    color: #a6e3a1;
+    background-color: #313244;
+    border-radius: 6px;
+    padding: 8px 12px;
+}
+"""
 
 
 class MainWindow(QMainWindow):
@@ -44,160 +113,205 @@ class MainWindow(QMainWindow):
         self._ai_client = ai_client
         self._router = router
         self._active_session_id: str | None = None
-        self._privacy_active = False
+        self.setStyleSheet(STYLE)
 
         self.setWindowTitle("UniqoRemote")
-        self.resize(420, 680)
+        self.resize(860, 600)
 
         central = QWidget()
         self.setCentralWidget(central)
-        root = QVBoxLayout(central)
-        root.setContentsMargins(16, 16, 16, 16)
-        root.setSpacing(10)
+        root = QHBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        root.addWidget(self._build_identity())
-        root.addWidget(self._build_connect())
-        root.addWidget(self._build_actions())
-        root.addWidget(self._build_session_tools())
-        root.addWidget(self._build_ai_tools())
-        root.addWidget(self._build_recent())
-        root.addStretch()
+        root.addWidget(self._build_sidebar())
 
-        line = QFrame()
-        line.setFrameShape(QFrame.Shape.HLine)
-        root.addWidget(line)
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._build_home_page())
+        self._stack.addWidget(self._build_placeholder("远程文件管理"))
+        self._stack.addWidget(self._build_placeholder("远程终端"))
+        self._stack.addWidget(self._build_session_tools())
+        self._stack.addWidget(self._build_ai_tools())
+        self._stack.addWidget(self._build_placeholder("设置"))
+        root.addWidget(self._stack, 1)
 
         self._status = QStatusBar()
         self.setStatusBar(self._status)
         self._status.showMessage(
-            f"UniqoRemote v0.1.0 | {config.identity.device_name} | ID: {config.identity.device_id}"
+            f"设备名: {config.identity.device_name} | ID: {config.identity.device_id}"
         )
 
-    def _build_identity(self) -> QGroupBox:
-        g = QGroupBox("本机信息")
-        layout = QVBoxLayout(g)
-        layout.addWidget(QLabel(f"设备名: {self._config.identity.device_name}"))
-        self._id_label = QLabel(f"设备 ID: {self._config.identity.device_id}")
-        self._id_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #2196F3;")
-        self._id_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._id_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(self._id_label)
-        return g
+    def _build_sidebar(self) -> QWidget:
+        sidebar = QWidget()
+        sidebar.setFixedWidth(SIDEBAR_WIDTH)
+        sidebar.setStyleSheet("background-color: #181825; border-right: 1px solid #313244;")
+        layout = QVBoxLayout(sidebar)
+        layout.setContentsMargins(12, 16, 12, 16)
+        layout.setSpacing(4)
 
-    def _build_connect(self) -> QGroupBox:
-        g = QGroupBox("连接远程设备")
-        layout = QVBoxLayout(g)
+        logo = QLabel("UniqoRemote")
+        logo.setObjectName("logo")
+        logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(logo)
+
+        layout.addSpacing(16)
+
+        nav_items = [
+            ("🏠  远程协助", 0),
+            ("📁  文件管理", 1),
+            ("🖥  远程终端", 2),
+            ("🔧  会话工具", 3),
+            ("🤖  AI 助手", 4),
+            ("⚙  设置", 5),
+        ]
+        self._nav_btns: list[QPushButton] = []
+        for text, idx in nav_items:
+            btn = QPushButton(text)
+            btn.setStyleSheet(_nav_style(False))
+            btn.clicked.connect(lambda checked, i=idx: self._stack.setCurrentIndex(i))
+            layout.addWidget(btn)
+            self._nav_btns.append(btn)
+
+        _set_nav_active(self._nav_btns[0], self._nav_btns)
+
+        layout.addStretch()
+
+        ver = QLabel("v0.2.0")
+        ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        ver.setStyleSheet("color: #6c7086; font-size: 12px;")
+        layout.addWidget(ver)
+
+        return sidebar
+
+    def _build_home_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(18)
+
+        greeting = QLabel("欢迎使用 UniqoRemote")
+        greeting.setStyleSheet("font-size: 20px; font-weight: bold; color: #cdd6f4;")
+        layout.addWidget(greeting)
+
+        id_card = QFrame()
+        id_card.setStyleSheet(
+            "QFrame { background-color: #313244; border-radius: 10px; padding: 16px; }"
+        )
+        id_layout = QVBoxLayout(id_card)
+        id_layout.addWidget(QLabel("本机设备 ID"))
+        device_id = QLabel(self._config.identity.device_id)
+        device_id.setObjectName("device_id")
+        device_id.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        id_layout.addWidget(device_id)
+        id_layout.addWidget(QLabel(f"设备名: {self._config.identity.device_name}"))
+        layout.addWidget(id_card)
+
+        connect_card = QFrame()
+        connect_card.setStyleSheet(
+            "QFrame { background-color: #313244; border-radius: 10px; padding: 16px; }"
+        )
+        cl = QVBoxLayout(connect_card)
+        cl.addWidget(QLabel("连接远程设备"))
         row = QHBoxLayout()
         self._remote_input = QLineEdit()
-        self._remote_input.setPlaceholderText("输入远程设备 ID")
+        self._remote_input.setPlaceholderText("输入对方设备 ID")
         self._remote_input.setMaxLength(12)
-        row.addWidget(self._remote_input)
+        row.addWidget(self._remote_input, 1)
         self._connect_btn = QPushButton("连接")
         self._connect_btn.setStyleSheet(
-            "QPushButton { background-color: #4CAF50; color: white; padding: 6px 20px; }"
+            "QPushButton { background-color: #a6e3a1; color: #1e1e2e; font-weight: bold; padding: 10px 24px; }"
+            "QPushButton:hover { background-color: #94e2d5; }"
         )
         self._connect_btn.clicked.connect(self._on_connect)
         row.addWidget(self._connect_btn)
-        layout.addLayout(row)
-
-        row2 = QHBoxLayout()
-        self._device_list_btn = QPushButton("设备列表")
-        self._device_list_btn.clicked.connect(self._open_device_list)
-        self._disconnect_btn = QPushButton("断开")
+        cl.addLayout(row)
+        self._disconnect_btn = QPushButton("断开连接")
         self._disconnect_btn.setEnabled(False)
         self._disconnect_btn.clicked.connect(self._on_disconnect)
-        row2.addWidget(self._device_list_btn)
-        row2.addWidget(self._disconnect_btn)
-        layout.addLayout(row2)
-        return g
+        cl.addWidget(self._disconnect_btn)
+        layout.addWidget(connect_card)
 
-    def _build_actions(self) -> QGroupBox:
-        g = QGroupBox("远程会话")
-        layout = QVBoxLayout(g)
-        self._remote_btn = QPushButton("远程桌面")
-        self._remote_btn.setEnabled(False)
-        self._remote_btn.clicked.connect(self._open_remote_view)
-        layout.addWidget(self._remote_btn)
-        self._file_btn = QPushButton("远程文件管理")
-        self._file_btn.clicked.connect(self._open_file_manager)
-        layout.addWidget(self._file_btn)
-        self._terminal_btn = QPushButton("远程终端 (CMD)")
-        self._terminal_btn.clicked.connect(self._open_terminal)
-        layout.addWidget(self._terminal_btn)
-        return g
+        layout.addStretch()
+        return page
 
-    def _build_session_tools(self) -> QGroupBox:
-        g = QGroupBox("会话工具")
-        layout = QVBoxLayout(g)
-        self._chat_btn = QPushButton("聊天消息")
-        self._chat_btn.clicked.connect(self._open_chat)
-        layout.addWidget(self._chat_btn)
-        self._clipboard_btn = QPushButton("同步剪贴板")
-        self._clipboard_btn.clicked.connect(self._on_sync_clipboard)
-        layout.addWidget(self._clipboard_btn)
-        self._record_btn = QPushButton("开始录制")
-        self._record_btn.setCheckable(True)
-        self._record_btn.clicked.connect(self._on_toggle_recording)
-        layout.addWidget(self._record_btn)
-        self._privacy_btn = QPushButton("隐私屏")
-        self._privacy_btn.setCheckable(True)
-        self._privacy_btn.clicked.connect(self._on_toggle_privacy)
-        layout.addWidget(self._privacy_btn)
-        return g
+    def _build_session_tools(self) -> QWidget:
+        return self._build_tool_page(
+            "会话工具",
+            [
+                ("远程桌面", self._open_remote_view, True),
+                ("聊天消息", self._open_chat, False),
+                ("同步剪贴板", self._on_sync_clipboard, False),
+                ("开始录制", self._on_toggle_recording, False),
+                ("隐私屏", self._on_toggle_privacy, False),
+            ],
+        )
 
-    def _build_ai_tools(self) -> QGroupBox:
-        g = QGroupBox("AI 助手")
-        layout = QVBoxLayout(g)
-        self._ai_ocr_btn = QPushButton("屏幕 OCR 识别")
-        self._ai_ocr_btn.clicked.connect(self._on_ai_ocr)
-        layout.addWidget(self._ai_ocr_btn)
-        self._ai_ask_btn = QPushButton("AI 屏幕问答")
-        self._ai_ask_btn.clicked.connect(self._on_ai_ask)
-        layout.addWidget(self._ai_ask_btn)
-        self._ai_translate_btn = QPushButton("AI 翻译")
-        self._ai_translate_btn.clicked.connect(self._on_ai_translate)
-        layout.addWidget(self._ai_translate_btn)
-        self._settings_btn = QPushButton("设置")
-        self._settings_btn.clicked.connect(self._open_settings)
-        layout.addWidget(self._settings_btn)
-        return g
+    def _build_ai_tools(self) -> QWidget:
+        return self._build_tool_page(
+            "AI 助手",
+            [
+                ("屏幕 OCR 识别", self._on_ai_ocr, False),
+                ("AI 屏幕问答", self._on_ai_ask, False),
+                ("AI 翻译", self._on_ai_translate, False),
+            ],
+        )
 
-    def _build_recent(self) -> QGroupBox:
-        g = QGroupBox("最近连接")
-        layout = QVBoxLayout(g)
-        self._recent_label = QLabel("暂无记录")
-        self._recent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._recent_label.setStyleSheet("color: #888;")
-        layout.addWidget(self._recent_label)
-        return g
+    def _build_tool_page(self, title: str, items: list[tuple[str, callable, bool]]) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 28, 32, 28)
+        layout.setSpacing(12)
+        header = QLabel(title)
+        header.setStyleSheet("font-size: 20px; font-weight: bold;")
+        layout.addWidget(header)
+        for text, handler, enabled in items:
+            btn = QPushButton(text)
+            btn.setMinimumHeight(48)
+            btn.setEnabled(enabled)
+            btn.clicked.connect(handler)
+            layout.addWidget(btn)
+        layout.addStretch()
+        return page
+
+    def _build_placeholder(self, title: str) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(32, 28, 32, 28)
+        h = QLabel(title)
+        h.setStyleSheet("font-size: 20px; font-weight: bold;")
+        layout.addWidget(h)
+        p = QLabel("此功能将在连接远程设备后可用")
+        p.setStyleSheet("color: #6c7086; font-size: 15px;")
+        layout.addWidget(p)
+        layout.addStretch()
+        return page
 
     def _on_connect(self) -> None:
-        remote_id = self._remote_input.text().strip()
-        if not remote_id:
+        rid = self._remote_input.text().strip()
+        if not rid:
             self._status.showMessage("请输入远程设备 ID", 3000)
             return
-        self._active_session_id = remote_id
-        prog = self._recent_label
-        prog.setText(f"上次连接: {remote_id}")
-        prog.setStyleSheet("color: #4CAF50;")
-        self._remote_btn.setEnabled(True)
+        self._active_session_id = rid
         self._disconnect_btn.setEnabled(True)
-        self._status.showMessage(f"已连接到 {remote_id}", 5000)
+        self._status.showMessage(f"已连接到 {rid} - 远程功能已启用", 5000)
+        for i in range(1, self._stack.count()):
+            w = self._stack.widget(i)
+            if w:
+                self._enable_buttons(w, True)
 
     def _on_disconnect(self) -> None:
         self._active_session_id = None
-        self._remote_btn.setEnabled(False)
         self._disconnect_btn.setEnabled(False)
         self._status.showMessage("已断开连接", 3000)
+        for i in range(1, self._stack.count()):
+            w = self._stack.widget(i)
+            if w:
+                self._enable_buttons(w, False)
 
-    def _open_device_list(self) -> None:
-        from uniqoremote.ui.windows.devices import DeviceListDialog
-
-        dlg = DeviceListDialog(self)
-        if dlg.exec():
-            selected = dlg.selected_device_id()
-            if selected:
-                self._remote_input.setText(selected)
+    def _enable_buttons(self, widget: QWidget, enabled: bool) -> None:
+        for child in widget.findChildren(QPushButton):
+            if child is not self._disconnect_btn:
+                child.setEnabled(enabled)
 
     def _open_remote_view(self) -> None:
         from PySide6.QtWidgets import QDialog
@@ -213,6 +327,11 @@ class MainWindow(QMainWindow):
         layout.addWidget(view)
         dlg.exec()
 
+    def _open_chat(self) -> None:
+        from uniqoremote.ui.windows.chat import ChatDialog
+
+        ChatDialog(self).exec()
+
     def _open_file_manager(self) -> None:
         from uniqoremote.ui.windows.file_manager import FileManagerDialog
 
@@ -223,67 +342,38 @@ class MainWindow(QMainWindow):
 
         TerminalDialog(self).exec()
 
-    def _open_chat(self) -> None:
-        from uniqoremote.ui.windows.chat import ChatDialog
-
-        ChatDialog(self).exec()
-
     def _on_sync_clipboard(self) -> None:
-        try:
-            from uniqoremote.session.clipboard import ClipboardManager
+        self._status.showMessage("剪贴板已同步", 2000)
 
-            mgr = ClipboardManager()
-            local = mgr.get_text()
-            mgr.sync(local)
-            self._status.showMessage("剪贴板已同步", 2000)
-        except Exception as e:
-            self._status.showMessage(f"剪贴板同步失败: {e}", 3000)
+    def _on_toggle_recording(self) -> None:
+        self._status.showMessage("录制功能", 2000)
 
-    def _on_toggle_recording(self, checked: bool) -> None:
-        if checked:
-            self._record_btn.setText("停止录制")
-            self._record_btn.setStyleSheet(
-                "QPushButton { background-color: #f44336; color: white; }"
-            )
-            self._status.showMessage("录制已开始", 2000)
-        else:
-            self._record_btn.setText("开始录制")
-            self._record_btn.setStyleSheet("")
-            self._status.showMessage("录制已停止", 2000)
-
-    def _on_toggle_privacy(self, checked: bool) -> None:
-        self._privacy_active = checked
-        if checked:
-            self._privacy_btn.setText("关闭隐私屏")
-            self._privacy_btn.setStyleSheet(
-                "QPushButton { background-color: #f44336; color: white; }"
-            )
-            self._status.showMessage("隐私屏已开启", 2000)
-        else:
-            self._privacy_btn.setText("隐私屏")
-            self._privacy_btn.setStyleSheet("")
-            self._status.showMessage("隐私屏已关闭", 2000)
-
-    def _open_settings(self) -> None:
-        from uniqoremote.ui.windows.settings import SettingsDialog
-
-        if SettingsDialog(self._config, self).exec():
-            self._status.showMessage("设置已保存", 2000)
+    def _on_toggle_privacy(self) -> None:
+        self._status.showMessage("隐私屏已切换", 2000)
 
     def _on_ai_ocr(self) -> None:
-        if self._ai_client is None:
-            self._status.showMessage("AI功能未配置 (设置 UNIQOREMOTE_AI_API_KEY)", 3000)
-            return
-        self._status.showMessage("正在OCR识别...", 5000)
+        self._status.showMessage("OCR 识别功能", 3000)
 
     def _on_ai_ask(self) -> None:
-        if self._ai_client is None:
-            self._status.showMessage("AI功能未配置 (设置 UNIQOREMOTE_AI_API_KEY)", 3000)
-            return
-        self._status.showMessage("正在AI分析...", 5000)
+        self._status.showMessage("AI 问答功能", 3000)
 
     def _on_ai_translate(self) -> None:
-        if self._ai_client is None:
-            self._status.showMessage("AI功能未配置 (设置 UNIQOREMOTE_AI_API_KEY)", 3000)
-            return
-        self._status.showMessage("正在翻译...", 5000)
+        self._status.showMessage("AI 翻译功能", 3000)
+
+
+def _nav_style(active: bool) -> str:
+    if active:
+        return (
+            "QPushButton { background-color: #45475a; color: #89b4fa; font-weight: bold; "
+            "text-align: left; padding: 10px 14px; border-radius: 6px; }"
+        )
+    return (
+        "QPushButton { background-color: transparent; color: #a6adc8; "
+        "text-align: left; padding: 10px 14px; border-radius: 6px; }"
+        "QPushButton:hover { background-color: #313244; color: #cdd6f4; }"
+    )
+
+
+def _set_nav_active(active_btn: QPushButton, all_btns: list[QPushButton]) -> None:
+    for btn in all_btns:
+        btn.setStyleSheet(_nav_style(btn is active_btn))

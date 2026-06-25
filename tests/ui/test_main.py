@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from PySide6.QtWidgets import QLabel
+
 from uniqoremote.core.config import Config
 from uniqoremote.ui.windows.main import MainWindow
 
@@ -16,7 +18,9 @@ class TestMainWindow:
         expected_id = config.identity.device_id
         window = MainWindow(config)
         qtbot.addWidget(window)
-        assert expected_id in window._id_label.text()
+        labels = window.findChildren(QLabel)
+        found = any(expected_id in lbl.text() for lbl in labels if lbl.text())
+        assert found
 
     def test_device_name_displayed(self, qtbot) -> None:
         config = Config()
