@@ -1,32 +1,33 @@
 from __future__ import annotations
 
-import numpy as np
 from PySide6.QtWidgets import QMainWindow
 
 from uniqoremote.ui.windows.remote import RemoteView
 
 
 class TestRemoteView:
-    def test_placeholder_text(self, qtbot) -> None:
+    def test_remote_view_creates_display(self, qtbot) -> None:
         window = QMainWindow()
         qtbot.addWidget(window)
         view = RemoteView()
         window.setCentralWidget(view)
-        assert "等待连接" in view.findChild(type(view._display)).text()
+        display = view.findChild(type(view._display))
+        assert display is not None
+        assert display.minimumWidth() == 640
 
-    def test_update_frame_no_crash(self, qtbot) -> None:
+    def test_remote_view_frame_queue(self, qtbot) -> None:
         window = QMainWindow()
         qtbot.addWidget(window)
         view = RemoteView()
         window.setCentralWidget(view)
-        data = np.zeros((240, 320, 3), dtype=np.uint8)
-        view.update_frame(data, 320, 240)
-        qtbot.wait(50)
+        view._on_frame(b"\x00" * 100)
+        assert len(view._frame_queue) == 1
+        view._process_frames()
+        assert len(view._frame_queue) == 0
 
-    def test_set_placeholder(self, qtbot) -> None:
+    def test_remote_view_mouse_tracking_enabled(self, qtbot) -> None:
         window = QMainWindow()
         qtbot.addWidget(window)
         view = RemoteView()
         window.setCentralWidget(view)
-        view.set_placeholder("disconnected")
-        assert "disconnected" in view.findChild(type(view._display)).text()
+        assert view.hasMouseTracking()
