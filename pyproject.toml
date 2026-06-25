@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "cryptography>=44",
     "msgpack>=1.1",
+    "numpy>=2",
     "structlog>=25",
 ]
 
@@ -41,7 +42,12 @@ indent-style = "space"
 
 [tool.mypy]
 strict = true
-python_version = "3.11"
+python_version = "3.12"
+exclude = [".venv"]
+
+[[tool.mypy.overrides]]
+module = "numpy"
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
