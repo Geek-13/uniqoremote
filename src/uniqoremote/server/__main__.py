@@ -12,7 +12,7 @@ async def main() -> None:
     logger = configure_logging(level="INFO")
     logger.info("server_starting")  # type: ignore[attr-defined]
     server = await asyncio.start_server(
-        lambda r, w: asyncio.create_task(_handle(r, w, logger)),  # type: ignore[arg-type]
+        lambda r, w: asyncio.create_task(_handle(r, w, logger)),
         "0.0.0.0",
         21116,
     )
@@ -26,7 +26,7 @@ async def main() -> None:
     await stop.wait()
     server.close()
     await server.wait_closed()
-    logger.info("server_stopped")
+    logger.info("server_stopped")  # type: ignore[attr-defined]
 
 
 async def _handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, logger) -> None:

@@ -92,7 +92,8 @@ class FfmpegDecoder:
         if not self._available:
             return
         exe = _find_ffmpeg()
-        cmd: list[str] = [
+        assert exe is not None
+        decoder_cmd: list[str] = [
             exe,
             "-f",
             codec,
