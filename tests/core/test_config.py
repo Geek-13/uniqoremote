@@ -64,3 +64,13 @@ class TestConfig:
             assert config.network.bind_port == 21116
         finally:
             config_path.unlink()
+
+
+def test_persist_device_id(tmp_path: Path) -> None:
+    cfg_path = tmp_path / "config.toml"
+    cfg1 = load_config(cfg_path)
+    assert cfg1.identity.device_id != ""
+    dev_id = cfg1.identity.device_id
+
+    cfg2 = load_config(cfg_path)
+    assert cfg2.identity.device_id == dev_id

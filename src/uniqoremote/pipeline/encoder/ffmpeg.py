@@ -4,6 +4,9 @@ import os
 import subprocess
 from dataclasses import dataclass
 
+from uniqoremote.pipeline.capturer.base import RawFrame
+from uniqoremote.pipeline.encoder.base import EncodedPacket
+
 
 @dataclass
 class EncoderConfig:
@@ -61,14 +64,16 @@ class FfmpegEncoder:
         ]
         self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
-    async def encode(self, frame_data: bytes) -> bytes:
-        if self._proc is None or self._proc.stdin is None:
-            return b""
-        self._proc.stdin.write(frame_data)
+    async def encode(self, frame: RawFrame) -> list[EncodedPacket]:
+        if self._proc is None:
+            return []
+        if self._proc.stdin is None or self._proc.stdout is None:
+            return []
+        raw = frame.data.tobytes()
+        self._proc.stdin.write(raw)
         self._proc.stdin.flush()
-        if self._proc.stdout is None:
-            return b""
-        return self._proc.stdout.read(65536)
+        data = self._proc.stdout.read(65536)
+        return [EncodedPacket(data=data, is_keyframe=False, pts=0)] if data else []
 
     async def request_keyframe(self) -> None:
         if self._proc is not None:

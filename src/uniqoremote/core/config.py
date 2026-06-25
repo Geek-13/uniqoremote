@@ -42,42 +42,66 @@ class Config:
 
 def load_config(path: Path) -> Config:
     config = Config()
-    if not path.exists():
-        return config
+    if path.exists():
+        with open(path, "rb") as f:
+            raw = tomllib.load(f)
 
-    with open(path, "rb") as f:
-        raw = tomllib.load(f)
+        if "identity" in raw:
+            id_raw = raw["identity"]
+            if "device_id" in id_raw:
+                config.identity.device_id = id_raw["device_id"]
+            if "device_name" in id_raw:
+                config.identity.device_name = id_raw["device_name"]
 
-    if "identity" in raw:
-        id_raw = raw["identity"]
-        if "device_id" in id_raw:
-            config.identity.device_id = id_raw["device_id"]
-        if "device_name" in id_raw:
-            config.identity.device_name = id_raw["device_name"]
+        if "network" in raw:
+            net_raw = raw["network"]
+            if "bind_port" in net_raw:
+                config.network.bind_port = net_raw["bind_port"]
+            if "rendezvous_server" in net_raw:
+                config.network.rendezvous_server = net_raw["rendezvous_server"]
 
-    if "network" in raw:
-        net_raw = raw["network"]
-        if "bind_port" in net_raw:
-            config.network.bind_port = net_raw["bind_port"]
-        if "rendezvous_server" in net_raw:
-            config.network.rendezvous_server = net_raw["rendezvous_server"]
+        if "display" in raw:
+            disp_raw = raw["display"]
+            if "default_width" in disp_raw:
+                config.display.default_width = disp_raw["default_width"]
+            if "default_height" in disp_raw:
+                config.display.default_height = disp_raw["default_height"]
+            if "max_fps" in disp_raw:
+                config.display.max_fps = disp_raw["max_fps"]
 
-    if "display" in raw:
-        disp_raw = raw["display"]
-        if "default_width" in disp_raw:
-            config.display.default_width = disp_raw["default_width"]
-        if "default_height" in disp_raw:
-            config.display.default_height = disp_raw["default_height"]
-        if "max_fps" in disp_raw:
-            config.display.max_fps = disp_raw["max_fps"]
+        if "ai" in raw:
+            ai_raw = raw["ai"]
+            if "enabled" in ai_raw:
+                config.ai.enabled = ai_raw["enabled"]
+            if "model" in ai_raw:
+                config.ai.model = ai_raw["model"]
+            if "api_key" in ai_raw:
+                config.ai.api_key = ai_raw["api_key"]
 
-    if "ai" in raw:
-        ai_raw = raw["ai"]
-        if "enabled" in ai_raw:
-            config.ai.enabled = ai_raw["enabled"]
-        if "model" in ai_raw:
-            config.ai.model = ai_raw["model"]
-        if "api_key" in ai_raw:
-            config.ai.api_key = ai_raw["api_key"]
-
+    if not config.identity.device_id:
+        config.identity.device_id = uuid.uuid4().hex[:12]
+    _save_config(path, config)
     return config
+
+
+def _save_config(path: Path, config: Config) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    content = f"""[identity]
+device_id = "{config.identity.device_id}"
+device_name = "{config.identity.device_name}"
+
+[network]
+bind_port = {config.network.bind_port}
+rendezvous_server = "{config.network.rendezvous_server}"
+
+[display]
+default_width = {config.display.default_width}
+default_height = {config.display.default_height}
+max_fps = {config.display.max_fps}
+
+[ai]
+enabled = {str(config.ai.enabled).lower()}
+model = "{config.ai.model}"
+api_key = "{config.ai.api_key}"
+"""
+    path.write_text(content, encoding="utf-8")
