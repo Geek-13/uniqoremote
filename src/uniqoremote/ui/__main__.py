@@ -10,6 +10,12 @@ from uniqoremote.ui.compose import create_app
 
 
 def main() -> int:
+    if "--agent" in sys.argv:
+        from uniqoremote.agent.__main__ import main as agent_main
+
+        asyncio.run(agent_main())
+        return 0
+
     app = QApplication(sys.argv)
     loop = qasync.QEventLoop(app)
     asyncio.set_event_loop(loop)

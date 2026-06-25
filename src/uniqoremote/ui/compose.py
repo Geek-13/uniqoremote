@@ -53,8 +53,16 @@ def _create_ai_client(config: Config):
 
 
 def _start_agent() -> None:
-    subprocess.Popen(
-        [sys.executable, "-m", "uniqoremote.agent"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    frozen = getattr(sys, "frozen", False)
+    if frozen:
+        subprocess.Popen(
+            [sys.executable, "--agent"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    else:
+        subprocess.Popen(
+            [sys.executable, "-m", "uniqoremote.agent"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
