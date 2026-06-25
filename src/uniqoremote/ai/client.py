@@ -32,7 +32,7 @@ class DeepSeekClient(AIClient):
         if not self.is_configured:
             return "[AI disabled: no API key configured]"
         try:
-            import litellm  # type: ignore[import-not-found,import-untyped]
+            import litellm  # type: ignore[import-not-found]
 
             messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
             response = await litellm.acompletion(

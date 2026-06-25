@@ -11,9 +11,8 @@ from uniqoremote.core.logging import configure_logging
 async def main() -> None:
     logger = configure_logging(level="INFO")
     logger.info("server_starting")  # type: ignore[attr-defined]
-
     server = await asyncio.start_server(
-        lambda r, w: asyncio.create_task(_handle(r, w, logger)),
+        lambda r, w: asyncio.create_task(_handle(r, w, logger)),  # type: ignore[arg-type]
         "0.0.0.0",
         21116,
     )

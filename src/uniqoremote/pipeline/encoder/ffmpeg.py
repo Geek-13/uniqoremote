@@ -58,13 +58,13 @@ class FfmpegEncoder:
         self._proc.stdin.flush()
         if self._proc.stdout is None:
             return b""
-        return self._proc.stdout.read(65536)  # type: ignore[no-any-return]
+        return self._proc.stdout.read(65536)
 
     async def request_keyframe(self) -> None:
         if self._proc is not None:
             import signal as _signal
 
-            self._proc.send_signal(_signal.SIGINT)  # type: ignore[attr-defined]
+            self._proc.send_signal(int(_signal.SIGINT))
 
     async def stop(self) -> None:
         if self._proc is not None:
