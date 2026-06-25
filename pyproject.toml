@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uniqoremote"
+version = "0.1.0"
+description = "UniqoRemote - Remote Desktop Protocol"
+requires-python = ">=3.11"
+dependencies = [
+    "cryptography>=44",
+    "msgpack>=1.1",
+    "structlog>=25",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.25",
+    "pytest-cov>=6",
+    "ruff>=0.11",
+    "mypy>=1.15",
+]
+ui = [
+    "PySide6>=6.8",
+    "qasync>=0.27",
+]
+ai = [
+    "litellm>=1.75",
+    "paddleocr>=2.9",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+lint.select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
