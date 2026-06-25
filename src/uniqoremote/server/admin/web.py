@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
+import fastapi  # type: ignore[import-not-found]
+import uvicorn  # type: ignore[import-not-found]
+
 from uniqoremote.server.rendezvous.manager import RendezvousManager
 
 
@@ -18,12 +21,6 @@ class AdminWebPanel:
         }
 
     async def start(self, host: str = "0.0.0.0", port: int = 8080) -> None:
-        try:
-            import uvicorn  # type: ignore[import-not-found]
-            import fastapi  # type: ignore[import-not-found]
-        except ImportError:
-            return
-
         app = fastapi.FastAPI(title="UniqoRemote Admin")
 
         @app.get("/status")  # type: ignore[untyped-decorator]

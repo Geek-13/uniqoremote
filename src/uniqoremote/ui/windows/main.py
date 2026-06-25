@@ -219,7 +219,8 @@ class MainWindow(QMainWindow):
         row.addWidget(self._remote_input, 1)
         self._connect_btn = QPushButton("连接")
         self._connect_btn.setStyleSheet(
-            "QPushButton { background-color: #a6e3a1; color: #1e1e2e; font-weight: bold; padding: 10px 24px; }"
+            "QPushButton { background-color: #a6e3a1; color: #1e1e2e;"
+            " font-weight: bold; padding: 10px 24px; }"
             "QPushButton:hover { background-color: #94e2d5; }"
         )
         self._connect_btn.clicked.connect(self._on_connect)
