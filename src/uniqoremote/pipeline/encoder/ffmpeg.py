@@ -103,7 +103,11 @@ class FfmpegDecoder:
             return
         exe = _find_ffmpeg()
         assert exe is not None
-        self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        dcmd: list[str] = [
+            exe, "-f", codec, "-i", "pipe:0",
+            "-f", "rawvideo", "-pix_fmt", "bgra", "pipe:1",
+        ]
+        self._proc = subprocess.Popen(dcmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
 
     async def decode(self, data: bytes) -> bytes:
         if self._proc is None:

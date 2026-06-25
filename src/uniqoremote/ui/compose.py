@@ -7,7 +7,7 @@ from uniqoremote.core.config import Config, load_config
 try:
     from uniqoremote.core.channel import EncryptedChannel
     from uniqoremote.core.crypto import generate_key_pair
-    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder, FfmpegEncoder
+    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder
     from uniqoremote.session.manager import SessionManager
     from uniqoremote.session.router import MessageRouter
     from uniqoremote.transport.udp import UdpTransport
