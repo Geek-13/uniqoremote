@@ -1,54 +1,73 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from uniqoremote.core.config import Config, load_config
 
-try:
-    from uniqoremote.core.channel import EncryptedChannel
-    from uniqoremote.core.crypto import generate_key_pair
-    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder
-    from uniqoremote.session.manager import SessionManager
-    from uniqoremote.session.router import MessageRouter
-    from uniqoremote.transport.udp import UdpTransport
-    from uniqoremote.ui.ipc_client import IpcClient
+if TYPE_CHECKING:
     from uniqoremote.ui.windows.main import MainWindow
-
-    HAS_FULL_DEPS = True
-except ImportError:
-    HAS_FULL_DEPS = False
 
 
 def create_app(config_path: Path | None = None) -> MainWindow:
     if config_path is None:
         config_path = Path("config.toml")
     config = load_config(config_path)
+    _start_agent()
 
-    if HAS_FULL_DEPS:
-        key_pair = generate_key_pair()
-        transport = UdpTransport()
-        channel = EncryptedChannel(transport, derive_key(key_pair))
-        router = MessageRouter(channel)
-        session_mgr = SessionManager()
-        decoder = FfmpegDecoder()
-        agent_client = IpcClient(port=9510)
-        ai_client = _create_ai_client(config)
-        return MainWindow(config, session_mgr, decoder, agent_client, ai_client, router)
+    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder
+    from uniqoremote.session.manager import SessionManager
+    from uniqoremote.transport.p2p import P2PTransport, StunClient
+    from uniqoremote.transport.tcp import TcpTransport
+    from uniqoremote.ui.ipc_client import IpcClient
+    from uniqoremote.ui.windows.main import MainWindow
 
-    return MainWindow(config)
+    session_mgr = SessionManager()
+    decoder = FfmpegDecoder()
+    agent_client = IpcClient(port=9510)
+    stun = StunClient()
+    p2p_transport = P2PTransport()
+    relay_transport = TcpTransport()
+    ai_client = _create_ai_client(config)
+
+    return MainWindow(
+        config=config,
+        session_mgr=session_mgr,
+        decoder=decoder,
+        agent_client=agent_client,
+        ai_client=ai_client,
+        stun_client=stun,
+        p2p_transport=p2p_transport,
+        relay_transport=relay_transport,
+    )
 
 
 def _create_ai_client(config: Config):
-    if config.ai.enabled:
+    if config.ai.enabled and config.ai.api_key:
         from uniqoremote.ai.client import DeepSeekClient
 
         return DeepSeekClient(model=config.ai.model)
     return None
 
 
-def derive_key(key_pair):
-    from uniqoremote.core.crypto import derive_session_key, generate_nonce
+def _start_agent() -> None:
+    try:
+        import ctypes
 
-    sk_a, pk_a = key_pair
-    sk_b, pk_b = generate_key_pair()
-    return derive_session_key(sk_a, pk_b, generate_nonce(), generate_nonce())
+        ret = ctypes.windll.shell32.ShellExecuteW(
+            None, "runas", sys.executable, "-m uniqoremote.agent", None, 1
+        )
+        if ret <= 32:
+            subprocess.Popen(
+                [sys.executable, "-m", "uniqoremote.agent"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+    except Exception:
+        subprocess.Popen(
+            [sys.executable, "-m", "uniqoremote.agent"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )

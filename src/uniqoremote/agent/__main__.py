@@ -38,23 +38,63 @@ async def main() -> None:
 async def _handle_client(conn: IpcConnection, logger: Any) -> None:
     import contextlib
 
+    from uniqoremote.agent.pipeline_runner import PipelineRunner
+    from uniqoremote.input.controller import InputController
+    from uniqoremote.pipeline.capturer.gdi import GdiCapturer
+    from uniqoremote.pipeline.encoder.ffmpeg import FfmpegEncoder
+
+    runner: PipelineRunner | None = None
+    input_ctrl = InputController()
+    frame_queue: asyncio.Queue[list[bytes]] = asyncio.Queue()
+
+    async def _push_frames() -> None:
+        while True:
+            try:
+                frames = await asyncio.wait_for(frame_queue.get(), timeout=1.0)
+                for data in frames:
+                    await conn.send("FRAME", {"data": data, "size": len(data)})
+            except TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                break
+
     try:
         while True:
             msg_type, payload = await conn.recv()
             logger.info("agent_msg_received", type=msg_type)
+
             if msg_type == "START_CAPTURE":
-                logger.info("capture_started", params=payload)
+                width = int(payload.get("width", 1920))
+                height = int(payload.get("height", 1080))
+                fps = int(payload.get("fps", 30))
+                codec = str(payload.get("codec", "h264"))
+                capturer = GdiCapturer()
+                encoder = FfmpegEncoder()
+                if not encoder.is_available:
+                    await conn.send("ERROR", {"code": "FFMPEG_NOT_FOUND"})
+                    continue
+                runner = PipelineRunner(capturer, encoder, frame_queue)
+                await runner.start(width, height, fps, codec)
                 await conn.send("FRAME", {"status": "capture_started"})
+                asyncio.create_task(_push_frames())
+
             elif msg_type == "STOP_CAPTURE":
-                logger.info("capture_stopped")
+                if runner:
+                    await runner.stop()
+                    runner = None
                 await conn.send("FRAME", {"status": "capture_stopped"})
+
             elif msg_type == "INJECT_INPUT":
-                logger.debug("input_injected", input=payload)
+                await input_ctrl.handle(payload)
+
             elif msg_type == "HEARTBEAT":
                 await conn.send("HEARTBEAT", {"ts": payload.get("ts", 0)})
     except Exception:
         logger.exception("agent_client_error")
     finally:
+        if runner:
+            with contextlib.suppress(Exception):
+                await runner.stop()
         with contextlib.suppress(Exception):
             await conn.close()
 
