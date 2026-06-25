@@ -1,0 +1,17 @@
+[identity]
+device_id = "3d5b595de5be"
+device_name = "UniqoRemote Client"
+
+[network]
+bind_port = 21116
+rendezvous_server = ""
+
+[display]
+default_width = 1920
+default_height = 1080
+max_fps = 30
+
+[ai]
+enabled = false
+model = "deepseek-chat"
+api_key = ""

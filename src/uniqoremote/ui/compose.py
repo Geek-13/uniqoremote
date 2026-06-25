@@ -53,21 +53,8 @@ def _create_ai_client(config: Config):
 
 
 def _start_agent() -> None:
-    try:
-        import ctypes
-
-        ret = ctypes.windll.shell32.ShellExecuteW(
-            None, "runas", sys.executable, "-m uniqoremote.agent", None, 1
-        )
-        if ret <= 32:
-            subprocess.Popen(
-                [sys.executable, "-m", "uniqoremote.agent"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-    except Exception:
-        subprocess.Popen(
-            [sys.executable, "-m", "uniqoremote.agent"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
+    subprocess.Popen(
+        [sys.executable, "-m", "uniqoremote.agent"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
