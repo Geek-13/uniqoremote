@@ -2,17 +2,29 @@ from __future__ import annotations
 
 import asyncio
 import signal
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from uniqoremote.agent.ipc_server import IpcConnection, IpcServer
 from uniqoremote.core.logging import configure_logging
 
+_PORT_FILE = Path(tempfile.gettempdir()) / "uniqoremote_agent.port"
+
 
 async def main() -> None:
     logger: Any = configure_logging(level="INFO")
     logger.info("agent_starting")
-    server = IpcServer(port=9510)
-    actual_port = await server.start()
+    _PORT_FILE.unlink(missing_ok=True)
+    actual_port = 0
+    for port in (9510, 0):
+        server = IpcServer(port=port)
+        try:
+            actual_port = await server.start()
+            break
+        except OSError:
+            continue
+    _PORT_FILE.write_text(str(actual_port))
     logger.info("agent_listening", port=actual_port)
 
     stop_event = asyncio.Event()
@@ -32,6 +44,7 @@ async def main() -> None:
             continue
 
     await server.stop()
+    _PORT_FILE.unlink(missing_ok=True)
     logger.info("agent_stopped")
 
 

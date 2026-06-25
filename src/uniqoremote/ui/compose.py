@@ -26,7 +26,7 @@ def create_app(config_path: Path | None = None) -> MainWindow:
 
     session_mgr = SessionManager()
     decoder = FfmpegDecoder()
-    agent_client = IpcClient(port=9510)
+    agent_client = IpcClient(port=0)
     stun = StunClient()
     p2p_transport = P2PTransport()
     relay_transport = TcpTransport()
