@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from uniqoremote.server.rendezvous.manager import RendezvousManager
 
 
@@ -21,8 +19,8 @@ class AdminWebPanel:
 
     async def start(self, host: str = "0.0.0.0", port: int = 8080) -> None:
         try:
-            from fastapi import FastAPI
             import uvicorn
+            from fastapi import FastAPI
 
             app = FastAPI(title="UniqoRemote Admin")
 

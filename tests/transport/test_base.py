@@ -7,7 +7,7 @@ class TestTransportABC:
     def test_cannot_instantiate_abc(self) -> None:
         try:
             Transport()  # type: ignore[abstract]
-            assert False, "Should have raised TypeError"
+            raise AssertionError("Should have raised TypeError")
         except TypeError:
             pass
 
@@ -18,7 +18,7 @@ class TestTransportABC:
 
         try:
             Incomplete()  # type: ignore[abstract]
-            assert False, "Should have raised TypeError"
+            raise AssertionError("Should have raised TypeError")
         except TypeError:
             pass
 

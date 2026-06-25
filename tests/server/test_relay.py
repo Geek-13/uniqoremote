@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from uniqoremote.server.relay.relay import RelayServer, RelaySession
 
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from uniqoremote.pipeline.capturer.base import Capturer
-from uniqoremote.pipeline.encoder.base import Encoder, EncodedPacket
+from uniqoremote.pipeline.encoder.base import EncodedPacket, Encoder
 
 
 class Pipeline(ABC):

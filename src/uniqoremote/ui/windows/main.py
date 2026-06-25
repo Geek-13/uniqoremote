@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
 
 if TYPE_CHECKING:
     from uniqoremote.ai.client import DeepSeekClient
-    from uniqoremote.core.channel import EncryptedChannel
     from uniqoremote.pipeline.encoder.ffmpeg import FfmpegDecoder
     from uniqoremote.session.manager import SessionManager
     from uniqoremote.session.router import MessageRouter
@@ -201,9 +200,9 @@ class MainWindow(QMainWindow):
                 self._remote_input.setText(selected)
 
     def _open_remote_view(self) -> None:
-        from uniqoremote.ui.windows.remote import RemoteView
-
         from PySide6.QtWidgets import QDialog
+
+        from uniqoremote.ui.windows.remote import RemoteView
 
         dlg = QDialog(self)
         dlg.setWindowTitle(f"远程桌面 - {self._active_session_id}")

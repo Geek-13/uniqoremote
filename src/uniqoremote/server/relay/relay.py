@@ -1,13 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-import struct
 from dataclasses import dataclass, field
-from typing import Any
-
-import msgpack  # type: ignore[import-untyped]
-
-from uniqoremote.transport.base import Transport
 
 
 @dataclass

@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import sys
 from pathlib import Path
-
-from PySide6.QtWidgets import QApplication
 
 from uniqoremote.core.config import Config, load_config
 

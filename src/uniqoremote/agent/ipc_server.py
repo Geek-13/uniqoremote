@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import struct
 from typing import Any
 
@@ -76,7 +77,5 @@ class IpcConnection:
         return msg["type"], msg["payload"]
 
     async def close(self) -> None:
-        try:
+        with contextlib.suppress(Exception):
             self._writer.close()
-        except Exception:
-            pass

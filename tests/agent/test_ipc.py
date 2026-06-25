@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 
 import pytest
 
@@ -21,23 +22,15 @@ async def ipc_pair(unused_tcp_port: int):
     try:
         yield client, conn_server
     finally:
-        try:
+        with contextlib.suppress(Exception):
             await client.close()
-        except Exception:
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await conn_server.close()
-        except Exception:
-            pass
         server_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await server_task
-        except (asyncio.CancelledError, Exception):
-            pass
-        try:
+        with contextlib.suppress(Exception):
             await server.stop()
-        except Exception:
-            pass
 
 
 @pytest.mark.asyncio

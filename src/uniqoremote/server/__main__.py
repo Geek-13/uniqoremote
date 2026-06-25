@@ -22,7 +22,7 @@ async def main() -> None:
 
     from uniqoremote.server.admin.web import AdminWebPanel
 
-    admin = AdminWebPanel(rendezvous)
+    AdminWebPanel(rendezvous)
 
     stop = asyncio.Event()
     signal.signal(signal.SIGINT, lambda *_: stop.set())

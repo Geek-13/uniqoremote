@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import socket
-import struct
-import time
 from dataclasses import dataclass
 from typing import Self
 
@@ -37,7 +36,7 @@ class StunClient:
                 addr = sock.getsockname()
                 sock.close()
                 return (addr[0], addr[1])
-            except (OSError, socket.timeout):
+            except (TimeoutError, OSError):
                 continue
         return ("0.0.0.0", 0)
 
@@ -73,11 +72,9 @@ class P2PTransport(Transport):
         timeout: float = 0.5,
     ) -> PunchResult:
         await self._udp.connect(peer_addr)
-        for i in range(attempts):
-            try:
+        for _i in range(attempts):
+            with contextlib.suppress(OSError):
                 await self._udp.send(b"\x00" * 8)
-            except OSError:
-                pass
             try:
                 data = await asyncio.wait_for(self._udp.recv(), timeout=timeout)
                 if data:
