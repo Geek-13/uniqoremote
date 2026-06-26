@@ -68,7 +68,17 @@ class ProtocolServer:
         if target_id:
             peer = self._rendezvous.lookup_peer(target_id)
             if peer:
-                peer_info = {"device_id": peer.device_id, "public_key": peer.public_key}
+                peer_info = {
+                    "device_id": peer.device_id,
+                    "public_key": peer.public_key,
+                    "addr": list(peer.addr) if peer.addr else None,
+                }
+                if peer.addr and self._transport:
+                    notify_peer = encode_frame(
+                        MessageType.PUNCH,
+                        {"from_device_id": device_id, "peer_addr": list(addr)},
+                    )
+                    self._transport.sendto(notify_peer, peer.addr)
 
         if self._transport:
             ack = encode_frame(

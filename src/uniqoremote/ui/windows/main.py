@@ -121,10 +121,44 @@ class MainWindow(QMainWindow):
         self._active_session_id: str | None = None
         self.setStyleSheet(STYLE)
 
+        self._reg_listen_task()
         self.setWindowTitle("UniqoRemote")
         self.resize(860, 600)
 
+    def _reg_listen_task(self) -> None:
         self._register_with_server()
+
+        import asyncio
+
+        async def _wire_incoming() -> None:
+            while True:
+                await asyncio.sleep(0.5)
+                if self._session_mgr and self._session_mgr.list_active():
+                    await self._agent_client.connect()
+                    await self._agent_client.send(
+                        "START_CAPTURE",
+                        {"width": self._config.display.default_width,
+                         "height": self._config.display.default_height,
+                         "fps": self._config.display.max_fps, "codec": "h264"},
+                    )
+                    asyncio.create_task(_forward_to_network())
+                    break
+
+        async def _forward_to_network() -> None:
+            while self._session_mgr and self._session_mgr.list_active():
+                try:
+                    msg_type, payload = await asyncio.wait_for(
+                        self._agent_client.recv(), timeout=1.0
+                    )
+                    if msg_type == "FRAME" and "data" in payload:
+                        await self._session_mgr.send_frame(payload["data"])
+                except TimeoutError:
+                    continue
+                except Exception:
+                    break
+
+        self._session_mgr.on_input(self._on_remote_input)
+        asyncio.get_running_loop().create_task(_wire_incoming())
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -341,6 +375,19 @@ class MainWindow(QMainWindow):
                     msg = "对端设备不在线，请确保对方已打开客户端并配置了相同的服务器地址"
                 self._status.showMessage(f"连接失败: {msg}", 8000)
 
+        async def _forward_agent_frames() -> None:
+            while self._active_session_id:
+                try:
+                    msg_type, payload = await asyncio.wait_for(
+                        self._agent_client.recv(), timeout=1.0
+                    )
+                    if msg_type == "FRAME" and "data" in payload:
+                        await self._session_mgr.send_frame(payload["data"])
+                except TimeoutError:
+                    continue
+                except Exception:
+                    break
+
         asyncio.get_running_loop().create_task(_do_connect())
 
     def _on_disconnect(self) -> None:
@@ -412,6 +459,18 @@ class MainWindow(QMainWindow):
     def _on_ai_translate(self) -> None:
         self._status.showMessage("AI 翻译功能", 3000)
 
+    def _on_remote_input(self, payload: dict) -> None:
+        import asyncio
+
+        async def _inject() -> None:
+            try:
+                await self._agent_client.connect()
+                await self._agent_client.send("INJECT_INPUT", payload)
+            except Exception:
+                pass
+
+        asyncio.get_running_loop().create_task(_inject())
+
     def _register_with_server(self) -> None:
         server_str = self._config.network.rendezvous_server
         if not server_str:
@@ -420,23 +479,10 @@ class MainWindow(QMainWindow):
         import asyncio
 
         async def _do_register() -> None:
-            from uniqoremote.core.crypto import generate_key_pair, generate_nonce
-            from uniqoremote.core.events import MessageType
-            from uniqoremote.core.protocol import encode_frame
-            from uniqoremote.session.handshake import generate_hello_payload
-            from uniqoremote.transport.udp import UdpTransport
-
             try:
                 host, port_str = server_str.rsplit(":", 1)
                 server_addr = (host, int(port_str))
-                sk, pk = generate_key_pair()
-                nonce = generate_nonce()
-                hello = generate_hello_payload(self._config.identity.device_id, pk, "1.0.0", nonce)
-                frame = encode_frame(MessageType.HELLO, hello)
-                udp = UdpTransport()
-                await udp.bind(("0.0.0.0", 0))
-                await udp.connect(server_addr)
-                await udp.send(frame)
+                await self._session_mgr.listen(self._config.identity.device_id, server_addr)
             except Exception:
                 pass
 
