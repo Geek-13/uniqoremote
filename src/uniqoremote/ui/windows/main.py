@@ -124,6 +124,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("UniqoRemote")
         self.resize(860, 600)
 
+        self._register_with_server()
+
         central = QWidget()
         self.setCentralWidget(central)
         root = QHBoxLayout(central)
@@ -312,6 +314,7 @@ class MainWindow(QMainWindow):
         import asyncio
 
         self._active_session_id = rid
+        self._status.showMessage("正在连接...", 0)
 
         async def _do_connect() -> None:
             try:
@@ -330,20 +333,22 @@ class MainWindow(QMainWindow):
                     if w:
                         self._enable_buttons(w, True)
             except Exception as e:
-                self._status.showMessage(f"连接失败: {e}", 5000)
+                import traceback
 
-        asyncio.ensure_future(_do_connect())
+                traceback.print_exc()
+                self._status.showMessage(f"连接失败: {e}", 8000)
+
+        asyncio.get_running_loop().create_task(_do_connect())
 
     def _on_disconnect(self) -> None:
         import asyncio
+        import contextlib
 
         async def _do_disconnect() -> None:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 await self._session_mgr.disconnect()
 
-        asyncio.ensure_future(_do_disconnect())
+        asyncio.get_running_loop().create_task(_do_disconnect())
         self._active_session_id = None
         self._disconnect_btn.setEnabled(False)
         self._status.showMessage("已断开连接", 3000)
@@ -416,6 +421,37 @@ def _nav_style(active: bool) -> str:
         "text-align: left; padding: 10px 14px; border-radius: 6px; }"
         "QPushButton:hover { background-color: #313244; color: #cdd6f4; }"
     )
+
+
+    def _register_with_server(self) -> None:
+        server_str = self._config.network.rendezvous_server
+        if not server_str:
+            return
+
+        import asyncio
+
+        async def _do_register() -> None:
+            from uniqoremote.core.crypto import generate_key_pair, generate_nonce, public_key_to_bytes
+            from uniqoremote.core.events import MessageType
+            from uniqoremote.core.protocol import encode_frame
+            from uniqoremote.session.handshake import generate_hello_payload
+            from uniqoremote.transport.udp import UdpTransport
+
+            try:
+                host, port_str = server_str.rsplit(":", 1)
+                server_addr = (host, int(port_str))
+                sk, pk = generate_key_pair()
+                nonce = generate_nonce()
+                hello = generate_hello_payload(self._config.identity.device_id, pk, "1.0.0", nonce)
+                frame = encode_frame(MessageType.HELLO, hello)
+                udp = UdpTransport()
+                await udp.bind(("0.0.0.0", 0))
+                await udp.connect(server_addr)
+                await udp.send(frame)
+            except Exception:
+                pass
+
+        asyncio.get_running_loop().create_task(_do_register())
 
 
 def _set_nav_active(active_btn: QPushButton, all_btns: list[QPushButton]) -> None:
