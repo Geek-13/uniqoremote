@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from PySide6.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
@@ -14,9 +16,10 @@ from uniqoremote.core.config import Config
 
 
 class SettingsPage(QWidget):
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, on_saved: Callable[[], None] | None = None) -> None:
         super().__init__()
         self._config = config
+        self._on_saved = on_saved
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 28, 32, 28)
 
@@ -61,3 +64,5 @@ class SettingsPage(QWidget):
         self._config.network.rendezvous_server = self._server_addr.text()
         self._config.network.bind_port = int(self._bind_port.text())
         self._config.display.max_fps = int(self._max_fps.text())
+        if self._on_saved:
+            self._on_saved()

@@ -142,7 +142,7 @@ class MainWindow(QMainWindow):
         self._stack.addWidget(self._build_ai_tools())
         from uniqoremote.ui.windows.settings import SettingsPage
 
-        self._stack.addWidget(SettingsPage(config))
+        self._stack.addWidget(SettingsPage(config, on_saved=self._register_with_server))
         root.addWidget(self._stack, 1)
 
         self._status = QStatusBar()
@@ -336,7 +336,10 @@ class MainWindow(QMainWindow):
                 import traceback
 
                 traceback.print_exc()
-                self._status.showMessage(f"连接失败: {e}", 8000)
+                msg = str(e)
+                if "Peer not online" in msg:
+                    msg = "对端设备不在线，请确保对方已打开客户端并配置了相同的服务器地址"
+                self._status.showMessage(f"连接失败: {msg}", 8000)
 
         asyncio.get_running_loop().create_task(_do_connect())
 
