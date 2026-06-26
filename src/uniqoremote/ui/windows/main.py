@@ -409,20 +409,6 @@ class MainWindow(QMainWindow):
     def _on_ai_translate(self) -> None:
         self._status.showMessage("AI 翻译功能", 3000)
 
-
-def _nav_style(active: bool) -> str:
-    if active:
-        return (
-            "QPushButton { background-color: #45475a; color: #89b4fa; font-weight: bold; "
-            "text-align: left; padding: 10px 14px; border-radius: 6px; }"
-        )
-    return (
-        "QPushButton { background-color: transparent; color: #a6adc8; "
-        "text-align: left; padding: 10px 14px; border-radius: 6px; }"
-        "QPushButton:hover { background-color: #313244; color: #cdd6f4; }"
-    )
-
-
     def _register_with_server(self) -> None:
         server_str = self._config.network.rendezvous_server
         if not server_str:
@@ -431,7 +417,7 @@ def _nav_style(active: bool) -> str:
         import asyncio
 
         async def _do_register() -> None:
-            from uniqoremote.core.crypto import generate_key_pair, generate_nonce, public_key_to_bytes
+            from uniqoremote.core.crypto import generate_key_pair, generate_nonce
             from uniqoremote.core.events import MessageType
             from uniqoremote.core.protocol import encode_frame
             from uniqoremote.session.handshake import generate_hello_payload
@@ -452,6 +438,19 @@ def _nav_style(active: bool) -> str:
                 pass
 
         asyncio.get_running_loop().create_task(_do_register())
+
+
+def _nav_style(active: bool) -> str:
+    if active:
+        return (
+            "QPushButton { background-color: #45475a; color: #89b4fa; font-weight: bold; "
+            "text-align: left; padding: 10px 14px; border-radius: 6px; }"
+        )
+    return (
+        "QPushButton { background-color: transparent; color: #a6adc8; "
+        "text-align: left; padding: 10px 14px; border-radius: 6px; }"
+        "QPushButton:hover { background-color: #313244; color: #cdd6f4; }"
+    )
 
 
 def _set_nav_active(active_btn: QPushButton, all_btns: list[QPushButton]) -> None:
