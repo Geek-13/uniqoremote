@@ -98,7 +98,7 @@ class SessionManager:
     ) -> Session:
         sk, pk = generate_key_pair()
         nonce = generate_nonce()
-        hello = generate_hello_payload(config_device_id, pk, "1.0.0", nonce)
+        hello = generate_hello_payload(config_device_id, pk, "1.0.0", nonce, remote_device_id)
         frame = encode_frame(MessageType.HELLO, hello)
 
         udp = UdpTransport()
@@ -115,7 +115,11 @@ class SessionManager:
         if msg.type != MessageType.NOTIFY:
             raise SessionError(f"Expected NOTIFY, got {msg.type}")
 
-        peer_pubkey = msg.payload.get("public_key", b"")
+        peer_info = msg.payload.get("peer", {})
+        peer_pubkey = peer_info.get("public_key", b"")
+        if not peer_pubkey:
+            raise SessionError("Peer not online")
+
         session_key = derive_shared_key(sk, public_key_from_bytes(peer_pubkey), nonce, b"")
 
         self._transport = p2p

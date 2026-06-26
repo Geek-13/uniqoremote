@@ -34,6 +34,7 @@ def generate_hello_payload(
     public_key: X25519PublicKey,
     version: str,
     nonce: bytes,
+    target_device_id: str = "",
 ) -> dict:
     return {
         "device_id": device_id,
@@ -41,6 +42,7 @@ def generate_hello_payload(
         "version": version,
         "capabilities": {"codec": ["h264"], "max_res": "1920x1080"},
         "nonce": nonce,
+        "target_device_id": target_device_id,
     }
 
 

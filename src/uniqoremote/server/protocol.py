@@ -63,18 +63,37 @@ class ProtocolServer:
         public_key = payload.get("public_key", b"")
         self._rendezvous.register(device_id, public_key, addr)
 
+        target_id = str(payload.get("target_device_id", ""))
+        peer_info: dict[str, Any] = {}
+        if target_id:
+            peer = self._rendezvous.lookup_peer(target_id)
+            if peer:
+                peer_info = {"device_id": peer.device_id, "public_key": peer.public_key}
+
+        if self._transport:
+            ack = encode_frame(
+                MessageType.NOTIFY,
+                {"status": "registered", "peer": peer_info},
+            )
+            self._transport.sendto(ack, addr)
+
     def _handle_punch(self, payload: Any, addr: tuple[str, int]) -> None:
         target_id = str(payload.get("target_device_id", ""))
+        from_id = str(payload.get("from_device_id", ""))
         peer = self._rendezvous.lookup_peer(target_id)
+
         if peer and peer.addr and self._transport:
             punch_data = encode_frame(
                 MessageType.PUNCH,
-                {
-                    "from_device_id": payload.get("from_device_id", ""),
-                    "peer_addr": addr,
-                },
+                {"from_device_id": from_id, "peer_addr": peer.addr},
             )
-            self._transport.sendto(punch_data, peer.addr)
+            self._transport.sendto(punch_data, addr)
+
+            notify_peer = encode_frame(
+                MessageType.PUNCH,
+                {"from_device_id": from_id, "peer_addr": addr},
+            )
+            self._transport.sendto(notify_peer, peer.addr)
 
 
 class _UdpProtocol(asyncio.DatagramProtocol):
